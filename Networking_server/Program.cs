@@ -20,7 +20,6 @@ while (true)
     int len = server.ReceiveFrom(buffer, ref senderEP);
     var msg = Encoding.UTF8.GetString(buffer, 0, len);
 
-    // Register clients
     if (client1 == null)
     {
         client1 = senderEP;
@@ -37,8 +36,6 @@ while (true)
         server.SendTo(Encoding.UTF8.GetBytes("You are now connected to a chat partner."), client2);
         continue;
     }
-
-    // Forward messages between clients
     if (senderEP.Equals(client1) && client2 != null)
         server.SendTo(Encoding.UTF8.GetBytes($"Client1: {msg}"), client2);
     else if (senderEP.Equals(client2) && client1 != null)
