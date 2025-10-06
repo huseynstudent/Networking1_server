@@ -1,45 +1,59 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
-// run server first,then copy client into 2
+
 var port = 45678;
+var ip = IPAddress.Any;
+var localEP = new IPEndPoint(ip, port);
 var server = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-var localEP = new IPEndPoint(IPAddress.Any, port);
 server.Bind(localEP);
 
-Console.WriteLine($"[SERVER] UDP server started on {localEP}...");
-Console.WriteLine("Waiting for clients...");
+Console.WriteLine($"Server ready on {localEP}");
 
-EndPoint? client1 = null;
-EndPoint? client2 = null;
 var buffer = new byte[1024];
+var clients = new List<EndPoint>();
+EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+var pairs = new List<(EndPoint, EndPoint)>();
 
 while (true)
 {
-    EndPoint senderEP = new IPEndPoint(IPAddress.Any, 0);
-    int len = server.ReceiveFrom(buffer, ref senderEP);
+    int len = server.ReceiveFrom(buffer, ref remoteEP);
     var msg = Encoding.UTF8.GetString(buffer, 0, len);
 
-    if (client1 == null)
+    if (msg == "HELLO")
     {
-        client1 = senderEP;
-        Console.WriteLine($"Client 1 connected: {client1}");
-        server.SendTo(Encoding.UTF8.GetBytes("Connected as Client 1"), client1);
-        continue;
-    }
-    else if (client2 == null && !senderEP.Equals(client1))
-    {
-        client2 = senderEP;
-        Console.WriteLine($"Client 2 connected: {client2}");
-        server.SendTo(Encoding.UTF8.GetBytes("Connected as Client 2"), client2);
-        server.SendTo(Encoding.UTF8.GetBytes("You are now connected to a chat partner."), client1);
-        server.SendTo(Encoding.UTF8.GetBytes("You are now connected to a chat partner."), client2);
-        continue;
-    }
-    if (senderEP.Equals(client1) && client2 != null)
-        server.SendTo(Encoding.UTF8.GetBytes($"Client1: {msg}"), client2);
-    else if (senderEP.Equals(client2) && client1 != null)
-        server.SendTo(Encoding.UTF8.GetBytes($"Client2: {msg}"), client1);
+        if (!clients.Contains(remoteEP))
+        {
+            clients.Add(remoteEP);
+            Console.WriteLine($"New client joined: {remoteEP}");
+            server.SendTo(Encoding.UTF8.GetBytes("Connected to server!"), remoteEP);
+        }
 
-    Console.WriteLine($"[{senderEP}] → {msg}");
+        if (clients.Count % 2 == 0)
+        {
+            //2 client olmalidir
+            var a = clients[^2];
+            var b = clients[^1];
+            pairs.Add((a, b));
+
+            server.SendTo(Encoding.UTF8.GetBytes("You are paired with another client."), a);
+            server.SendTo(Encoding.UTF8.GetBytes("You are paired with another client."), b);
+
+            Console.WriteLine($"Paired {a} ↔ {b}");
+        }
+
+        continue;
+    }
+
+    var pair = pairs.FirstOrDefault(p => p.Item1.Equals(remoteEP) || p.Item2.Equals(remoteEP));
+    if (pair != default)
+    {
+        var target = pair.Item1.Equals(remoteEP) ? pair.Item2 : pair.Item1;
+        server.SendTo(Encoding.UTF8.GetBytes(msg), target);
+        Console.WriteLine($"[{remoteEP}] → [{target}] : {msg}");
+    }
+    else
+    {
+        server.SendTo(Encoding.UTF8.GetBytes("You are not paired yet."), remoteEP);
+    }
 }
