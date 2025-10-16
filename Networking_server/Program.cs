@@ -1,30 +1,26 @@
-﻿using System;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-class UdpBroadcastServer
+var port = 45678;
+var ip = IPAddress.Any;
+var localEP = new IPEndPoint(ip, port);
+
+var server = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+server.Bind(localEP);
+
+Console.WriteLine($"UDP Server hazir: {localEP}");
+Console.WriteLine("Mesaj gцzl?nilir...");
+
+var buffer = new byte[1024];
+
+while (true)
 {
-    static void Main()
-    {
-        int port = 45678;
-        using Socket server = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        server.EnableBroadcast = true;
+    EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+    int len = server.ReceiveFrom(buffer, ref remoteEP);
 
-        Console.WriteLine($"UDP Broadcast Server started on port {port}.");
-        Console.WriteLine("Type a message and press Enter to broadcast. Type 'exit' to quit.");
-
-        while (true)
-        {
-            string msg = Console.ReadLine() ?? "";
-            if (msg.Equals("exit", StringComparison.OrdinalIgnoreCase))
-                break;
-
-            byte[] data = Encoding.UTF8.GetBytes(msg);
-            IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, port);
-            server.SendTo(data, broadcastEP);
-
-            Console.WriteLine($"[Server] Broadcasted: {msg}");
-        }
-    }
+    var msg = Encoding.UTF8.GetString(buffer, 0, len);
+    Console.ForegroundColor = ConsoleColor.Green;
+    Console.WriteLine($"[{remoteEP}] ? {msg}");
+    Console.ResetColor();
 }
